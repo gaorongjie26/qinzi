@@ -1,0 +1,4 @@
+packages:
+  - '.'
+  # 排除 src 目录以避免 Next.js 误认为它是子包
+  - '!src/**'
