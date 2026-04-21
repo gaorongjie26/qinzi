@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
 import { users } from "@/storage/database/shared/schema";
@@ -48,20 +47,29 @@ export async function POST(request: NextRequest) {
     const newUser = await db
       .insert(users)
       .values({
-        username: username,
+        username,
         password: hashedPassword,
       })
       .returning({ id: users.id, username: users.username });
 
+    if (!newUser || newUser.length === 0) {
+      return NextResponse.json(
+        { error: "注册失败，请稍后重试" },
+        { status: 500 }
+      );
+    }
+
+    const user = newUser[0];
+
     const response = NextResponse.json({
       success: true,
       user: {
-        id: newUser[0].id,
-        username: newUser[0].username,
+        id: user.id,
+        username: user.username,
       },
     });
 
-    response.cookies.set("user", JSON.stringify({ id: newUser[0].id, username: newUser[0].username }), {
+    response.cookies.set("user", JSON.stringify({ id: user.id, username: user.username }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

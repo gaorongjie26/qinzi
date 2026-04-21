@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
 import { blogPosts } from "@/storage/database/shared/schema";
@@ -6,21 +5,17 @@ import { desc } from "drizzle-orm";
 
 export async function GET() {
   try {
-    const data = await db
-      .select({
-        id: blogPosts.id,
-        title: blogPosts.title,
-        summary: blogPosts.summary,
-        createdAt: blogPosts.createdAt,
-      })
+    const posts = await db
+      .select()
       .from(blogPosts)
-      .orderBy(desc(blogPosts.createdAt));
+      .orderBy(desc(blogPosts.createdAt))
+      .limit(50);
 
-    return NextResponse.json(data);
+    return NextResponse.json(posts);
   } catch (error) {
-    console.error("Failed to fetch articles:", error);
+    console.error("获取博客列表失败:", error);
     return NextResponse.json(
-      { error: "获取文章列表失败" },
+      { error: "获取博客列表失败" },
       { status: 500 }
     );
   }

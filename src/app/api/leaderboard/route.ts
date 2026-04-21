@@ -1,54 +1,52 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
 import { gameRecords, users } from "@/storage/database/shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const currentUserId = searchParams.get("currentUserId");
+    const currentUserId = searchParams.get("userId");
 
-    const data = await db
+    const successfulRecords = await db
       .select({
         id: gameRecords.id,
         userId: gameRecords.userId,
-        scenario: gameRecords.scenario,
-        finalScore: gameRecords.finalScore,
-        result: gameRecords.result,
-        playedAt: gameRecords.playedAt,
         username: users.username,
+        finalScore: gameRecords.finalScore,
+        playedAt: gameRecords.playedAt,
       })
       .from(gameRecords)
       .innerJoin(users, eq(gameRecords.userId, users.id))
       .where(eq(gameRecords.result, "success"))
-      .orderBy(desc(gameRecords.finalScore))
-      .limit(100);
+      .orderBy(desc(gameRecords.finalScore));
 
-    const userScores = new Map<number, {
+    const userBestScores = new Map<number, {
       userId: number;
       username: string;
       maxScore: number;
+      totalGames: number;
       playedAt: string;
       recordId: number;
     }>();
 
-    data.forEach((record) => {
-      const userId = record.userId;
-      const score = record.finalScore;
-      
-      if (!userScores.has(userId) || score > userScores.get(userId)!.maxScore) {
-        userScores.set(userId, {
-          userId,
+    for (const record of successfulRecords) {
+      const existing = userBestScores.get(record.userId);
+      if (!existing || record.finalScore > existing.maxScore) {
+        userBestScores.set(record.userId, {
+          userId: record.userId,
           username: record.username,
-          maxScore: score,
+          maxScore: record.finalScore,
+          totalGames: existing ? existing.totalGames + 1 : 1,
           playedAt: record.playedAt,
           recordId: record.id,
         });
+      } else if (existing) {
+        existing.totalGames += 1;
       }
-    });
+    }
 
-    const leaderboard = Array.from(userScores.values())
+    const leaderboard = Array.from(userBestScores.values())
       .sort((a, b) => b.maxScore - a.maxScore)
       .slice(0, 20)
       .map((item, index) => ({
@@ -62,9 +60,9 @@ export async function GET(request: NextRequest) {
       leaderboard,
     });
   } catch (error) {
-    console.error("Failed to fetch leaderboard:", error);
+    console.error("获取排行榜失败:", error);
     return NextResponse.json(
-      { error: "获取排行榜失败" },
+      { success: false, error: "获取排行榜失败" },
       { status: 500 }
     );
   }

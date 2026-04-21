@@ -1,7 +1,6 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
-import { gameRecords } from "@/storage/database/shared/schema";
+import { gameRecords, users } from "@/storage/database/shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export async function GET(request: NextRequest) {
@@ -9,26 +8,45 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "缺少用户ID" },
-        { status: 400 }
-      );
+    if (userId) {
+      const uid = parseInt(userId, 10);
+      const records = await db
+        .select({
+          id: gameRecords.id,
+          userId: gameRecords.userId,
+          username: users.username,
+          scenario: gameRecords.scenario,
+          finalScore: gameRecords.finalScore,
+          result: gameRecords.result,
+          playedAt: gameRecords.playedAt,
+        })
+        .from(gameRecords)
+        .leftJoin(users, eq(gameRecords.userId, users.id))
+        .where(eq(gameRecords.userId, uid))
+        .orderBy(desc(gameRecords.playedAt))
+        .limit(20);
+
+      return NextResponse.json(records);
     }
 
-    const data = await db
-      .select()
+    const records = await db
+      .select({
+        id: gameRecords.id,
+        userId: gameRecords.userId,
+        username: users.username,
+        scenario: gameRecords.scenario,
+        finalScore: gameRecords.finalScore,
+        result: gameRecords.result,
+        playedAt: gameRecords.playedAt,
+      })
       .from(gameRecords)
-      .where(eq(gameRecords.userId, parseInt(userId, 10)))
+      .leftJoin(users, eq(gameRecords.userId, users.id))
       .orderBy(desc(gameRecords.playedAt))
       .limit(50);
 
-    return NextResponse.json({
-      success: true,
-      records: data,
-    });
+    return NextResponse.json(records);
   } catch (error) {
-    console.error("Failed to fetch game records:", error);
+    console.error("获取游戏记录失败:", error);
     return NextResponse.json(
       { error: "获取游戏记录失败" },
       { status: 500 }
@@ -38,32 +56,38 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, scenario, finalScore, result } = body;
+    const { userId, scenario, finalScore, result } = await request.json();
 
-    if (!userId || !scenario || !finalScore || !result) {
+    if (!userId || !scenario || finalScore === undefined || !result) {
       return NextResponse.json(
-        { error: "缺少必要参数" },
+        { error: "缺少必要的参数" },
         { status: 400 }
       );
     }
 
-    const insertedData = await db
+    const newRecord = await db
       .insert(gameRecords)
       .values({
-        userId: userId,
-        scenario: scenario,
-        finalScore: finalScore,
-        result: result,
+        userId: parseInt(userId, 10),
+        scenario,
+        finalScore: parseInt(finalScore, 10),
+        result,
       })
-      .returning();
+      .returning({ id: gameRecords.id });
+
+    if (!newRecord || newRecord.length === 0) {
+      return NextResponse.json(
+        { error: "保存游戏记录失败" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      record: insertedData[0],
+      id: newRecord[0].id,
     });
   } catch (error) {
-    console.error("Failed to save game record:", error);
+    console.error("保存游戏记录失败:", error);
     return NextResponse.json(
       { error: "保存游戏记录失败" },
       { status: 500 }

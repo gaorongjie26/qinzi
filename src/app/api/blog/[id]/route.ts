@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
 import { blogPosts } from "@/storage/database/shared/schema";
@@ -10,33 +9,27 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const numericId = parseInt(id, 10);
+    const postId = parseInt(id, 10);
 
-    if (isNaN(numericId)) {
-      return NextResponse.json(
-        { error: "无效的文章ID" },
-        { status: 400 }
-      );
+    if (isNaN(postId)) {
+      return NextResponse.json({ error: "无效的文章ID" }, { status: 400 });
     }
 
-    const data = await db
+    const post = await db
       .select()
       .from(blogPosts)
-      .where(eq(blogPosts.id, numericId))
+      .where(eq(blogPosts.id, postId))
       .limit(1);
 
-    if (data.length === 0) {
-      return NextResponse.json(
-        { error: "文章不存在" },
-        { status: 404 }
-      );
+    if (!post || post.length === 0) {
+      return NextResponse.json({ error: "文章不存在" }, { status: 404 });
     }
 
-    return NextResponse.json(data[0]);
+    return NextResponse.json(post[0]);
   } catch (error) {
-    console.error("Failed to fetch article:", error);
+    console.error("获取博客详情失败:", error);
     return NextResponse.json(
-      { error: "获取文章失败" },
+      { error: "获取博客详情失败" },
       { status: 500 }
     );
   }

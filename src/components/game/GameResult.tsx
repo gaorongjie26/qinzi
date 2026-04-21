@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -89,14 +88,14 @@ export function GameResult({ type }: GameResultProps) {
 
   // 保存游戏记录
   useEffect(() => {
-    if (user && isSuccess) {
+    if (user && !isSuccess) {
       // 只有成功通关才自动保存
       saveGameRecord();
     } else if (!user) {
       // 未登录显示提示
       setShowLoginTip(true);
     }
-  }, [user, isSuccess]);
+  }, []);
 
   const saveGameRecord = async () => {
     if (!user) return;
@@ -272,4 +271,3 @@ export function GameResult({ type }: GameResultProps) {
     </div>
   );
 }
-

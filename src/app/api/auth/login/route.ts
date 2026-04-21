@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/storage/database/db";
 import { users } from "@/storage/database/shared/schema";
@@ -16,20 +15,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await db
+    const existingUser = await db
       .select({ id: users.id, username: users.username, password: users.password })
       .from(users)
       .where(eq(users.username, username))
       .limit(1);
 
-    if (user.length === 0) {
+    if (existingUser.length === 0) {
       return NextResponse.json(
         { error: "用户名或密码错误" },
         { status: 401 }
       );
     }
 
-    const isValidPassword = await bcrypt.compare(password, user[0].password);
+    const user = existingUser[0];
+    const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
       return NextResponse.json(
@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       user: {
-        id: user[0].id,
-        username: user[0].username,
+        id: user.id,
+        username: user.username,
       },
     });
 
-    response.cookies.set("user", JSON.stringify({ id: user[0].id, username: user[0].username }), {
+    response.cookies.set("user", JSON.stringify({ id: user.id, username: user.username }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
