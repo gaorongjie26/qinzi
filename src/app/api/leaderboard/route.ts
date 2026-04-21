@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     }>();
 
     for (const record of successfulRecords) {
+      if (record.userId === null) continue;
+      
       const existing = userBestScores.get(record.userId);
       if (!existing || record.finalScore > existing.maxScore) {
         userBestScores.set(record.userId, {
