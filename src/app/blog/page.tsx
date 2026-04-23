@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Calendar, PenLine } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, PenLine, AlertCircle } from 'lucide-react';
 
 interface Article {
   id: number;
@@ -26,21 +26,55 @@ function formatDate(dateString: string): string {
 export default function BlogPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    
     const fetchArticles = async () => {
       try {
-        const response = await fetch('/api/blog');
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/blog', {
+          signal: controller.signal,
+          cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-        setArticles(data);
-      } catch (error) {
-        console.error('Failed to fetch articles:', error);
+        
+        // 处理 API 返回的不同格式
+        if (Array.isArray(data)) {
+          setArticles(data);
+        } else if (data.articles && Array.isArray(data.articles)) {
+          setArticles(data.articles);
+        } else if (data.success && data.articles) {
+          setArticles(data.articles);
+        } else {
+          setArticles([]);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          // 请求被取消，不显示错误
+          return;
+        }
+        console.error('Failed to fetch articles:', err);
+        setError(err instanceof Error ? err.message : '获取文章失败');
       } finally {
         setLoading(false);
       }
     };
 
     fetchArticles();
+    
+    // 清理函数：组件卸载时取消请求
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   return (
@@ -84,6 +118,19 @@ export default function BlogPage() {
                 <div className="h-4 bg-gray-100 rounded w-2/3" />
               </div>
             ))}
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center gap-2 text-red-500 mb-4">
+              <AlertCircle className="w-5 h-5" />
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              重新加载
+            </button>
           </div>
         ) : articles.length === 0 ? (
           <div className="text-center py-12">
